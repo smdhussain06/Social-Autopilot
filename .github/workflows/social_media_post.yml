@@ -2,8 +2,8 @@ name: "🚀 Social Media Autopilot"
 
 on:
   schedule:
-    # Fire daily at 04:00 UTC (9:30 AM IST)
-    - cron: "0 4 * * *"
+    # Fire daily at 04:30 UTC (10:00 AM IST)
+    - cron: "30 4 * * *"
 
   # Manual trigger for testing & ad-hoc runs
   workflow_dispatch:
