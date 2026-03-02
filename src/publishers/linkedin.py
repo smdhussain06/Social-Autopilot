@@ -67,14 +67,40 @@ class LinkedInPublisher(Publisher):
 
     def _post_with_images(self, text: str, paths: List[str]) -> PublishResult:
         """Handle the 3-step handshake to upload multiple images and post."""
+        from pathlib import Path
+        media_urns = []
+        for path in paths:
+            # Resolve relative paths
+            abs_path = Path(path)
+            if not abs_path.is_absolute():
+                abs_path = Path.cwd() / path
+
+            # Check if file exists
+            if not abs_path.exists():
+                logger.warning(f"Media file not found: {abs_path}. Skipping.")
+                continue
+
+            # Step 1: Register Upload
+            register_payload = {
+                "registerUploadRequest": {
+                    "recipes": ["urn:li:digitalmediaRecipe:feedshare-image"],
+                    "owner": self.person_urn,
+                    "serviceRelationships": [{"relationshipType": "OWNER", "identifier": "urn:li:userGeneratedContent"}]
+                }
+            }
+            reg_resp = requests.post(f"{LINKEDIN_API_BASE}/assets?action=registerUpload", headers=self._headers, json=register_payload).json()
+            upload_url = reg_resp['value']['uploadMechanism']['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest']['uploadUrl']
             asset_urn = reg_resp['value']['asset']
 
             # Step 2: Upload Binary
-            with open(path, 'rb') as f:
-                requests.put(upload_url, headers={"Authorization": f"Bearer {self.access_token}"}, data=f)
+            with open(abs_path, 'rb') as f:
+                requests.put(upload_url, data=f)
             
             media_urns.append(asset_urn)
-            logger.info(f"Uploaded image: {path} -> {asset_urn}")
+            logger.info(f"Uploaded image: {abs_path} -> {asset_urn}")
+
+        if not media_urns and paths:
+            return PublishResult(success=False, platform="LinkedIn", error="Failed to upload any images.")
 
         # Step 3: Create UGC Post with all assets
         media_content = []
