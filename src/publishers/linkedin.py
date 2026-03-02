@@ -167,16 +167,44 @@ class LinkedInPublisher(Publisher):
 
     def _parse_mentions(self, text: str) -> tuple[str, List[dict]]:
         """
-        TEMPORARILY DISABLED: Returns empty attributes to debug 422 error.
-        Still replaces @[URN:0] syntax with display names.
+        Parses custom mention syntax @[urn:li:person:XXXX:0] or @[urn:li:organization:XXXX:0]
+        and returns the cleaned text plus the attributes array for LinkedIn's API.
         """
         import re
+        attributes = []
         pattern = r"@\[(urn:li:(person|organization):[\w-]+):0\]"
         
-        def replace_mention(match):
+        # We need to build the cleaned text and attributes manually to handle index shifts
+        cleaned_text = ""
+        current_pos = 0
+        
+        for match in re.finditer(pattern, text):
+            # Add text before match
+            cleaned_text += text[current_pos:match.start()]
+            
             urn = match.group(1)
+            # Determine display text
             display_text = "Mohammad Hussain" if "person:pjK3tcVg0K" in urn else "A Generative Slice" if "organization:107795425" in urn else urn
-            return display_text
+            
+            # Record attribute with correct start index in the NEW text
+            attr_start = len(cleaned_text)
+            
+            # LinkedIn v2 ugcPosts attributes often expect "Member" or "Organization"
+            if "person" in urn:
+                attr_value = {"com.linkedin.common.Member": urn}
+            else:
+                attr_value = {"com.linkedin.common.Organization": urn}
 
-        cleaned_text = re.sub(pattern, replace_mention, text)
-        return cleaned_text, []
+            attributes.append({
+                "start": attr_start,
+                "length": len(display_text),
+                "value": attr_value
+            })
+            
+            cleaned_text += display_text
+            current_pos = match.end()
+            
+        # Add remaining text
+        cleaned_text += text[current_pos:]
+        
+        return cleaned_text, attributes
