@@ -68,6 +68,8 @@ class LinkedInPublisher(Publisher):
                 "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"
             },
         }
+        import json
+        logger.info(f"LinkedIn UGC Post (Text) Payload: {json.dumps(payload, indent=2)}")
         resp = requests.post(f"{LINKEDIN_API_BASE}/ugcPosts", headers=self._headers, json=payload, timeout=30)
         if resp.status_code != 201:
             logger.error(f"LinkedIn UGC Post (Text) Error Body: {resp.text}")
@@ -144,6 +146,8 @@ class LinkedInPublisher(Publisher):
             }
         }
 
+        import json
+        logger.info(f"LinkedIn UGC Post (Images) Payload: {json.dumps(payload, indent=2)}")
         resp = requests.post(f"{LINKEDIN_API_BASE}/ugcPosts", headers=self._headers, json=payload, timeout=30)
         if resp.status_code != 201:
             logger.error(f"LinkedIn UGC Post (Images) Error Body: {resp.text}")
@@ -188,7 +192,7 @@ class LinkedInPublisher(Publisher):
             if "person" in urn:
                 attr_value = {"com.linkedin.common.MemberUrn": urn}
             else:
-                attr_value = {"com.linkedin.common.CompanyUrn": urn}
+                attr_value = {"com.linkedin.common.OrganizationUrn": urn}
 
             attributes.append({
                 "start": attr_start,
