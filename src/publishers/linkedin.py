@@ -67,18 +67,6 @@ class LinkedInPublisher(Publisher):
 
     def _post_with_images(self, text: str, paths: List[str]) -> PublishResult:
         """Handle the 3-step handshake to upload multiple images and post."""
-        media_urns = []
-        for path in paths:
-            # Step 1: Register Upload
-            register_payload = {
-                "registerUploadRequest": {
-                    "recipes": ["urn:li:digitalmediaRecipe:feedshare-image"],
-                    "owner": self.person_urn,
-                    "serviceRelationships": [{"relationshipType": "OWNER", "identifier": "urn:li:userGeneratedContent"}]
-                }
-            }
-            reg_resp = requests.post(f"{LINKEDIN_API_BASE}/assets?action=registerUpload", headers=self._headers, json=register_payload).json()
-            upload_url = reg_resp['value']['uploadMechanism']['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest']['uploadUrl']
             asset_urn = reg_resp['value']['asset']
 
             # Step 2: Upload Binary

@@ -45,8 +45,10 @@ def _normalize_item(raw: dict) -> ContentItem:
 
     return {
         "date": raw.get("date", ""),
+        "time": raw.get("time", ""),
         "caption": raw.get("caption", ""),
         "video_url": raw.get("video_url", ""),
+        "media_paths": raw.get("media_paths", []),
         "hashtags": hashtags,
         "platforms": platforms,
     }
