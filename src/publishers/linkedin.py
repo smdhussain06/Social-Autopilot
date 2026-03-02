@@ -69,6 +69,8 @@ class LinkedInPublisher(Publisher):
             },
         }
         resp = requests.post(f"{LINKEDIN_API_BASE}/ugcPosts", headers=self._headers, json=payload, timeout=30)
+        if resp.status_code != 201:
+            logger.error(f"LinkedIn UGC Post (Text) Error Body: {resp.text}")
         resp.raise_for_status()
         return self._format_result(resp.json())
 
@@ -95,9 +97,14 @@ class LinkedInPublisher(Publisher):
                     "serviceRelationships": [{"relationshipType": "OWNER", "identifier": "urn:li:userGeneratedContent"}]
                 }
             }
-            reg_resp = requests.post(f"{LINKEDIN_API_BASE}/assets?action=registerUpload", headers=self._headers, json=register_payload).json()
-            upload_url = reg_resp['value']['uploadMechanism']['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest']['uploadUrl']
-            asset_urn = reg_resp['value']['asset']
+            reg_resp = requests.post(f"{LINKEDIN_API_BASE}/assets?action=registerUpload", headers=self._headers, json=register_payload)
+            if reg_resp.status_code != 200:
+                logger.error(f"LinkedIn Register Upload Error Body: {reg_resp.text}")
+            reg_resp.raise_for_status()
+            
+            data = reg_resp.json()
+            upload_url = data['value']['uploadMechanism']['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest']['uploadUrl']
+            asset_urn = data['value']['asset']
 
             # Step 2: Upload Binary
             with open(abs_path, 'rb') as f:
@@ -138,6 +145,8 @@ class LinkedInPublisher(Publisher):
         }
 
         resp = requests.post(f"{LINKEDIN_API_BASE}/ugcPosts", headers=self._headers, json=payload, timeout=30)
+        if resp.status_code != 201:
+            logger.error(f"LinkedIn UGC Post (Images) Error Body: {resp.text}")
         resp.raise_for_status()
         return self._format_result(resp.json())
 
@@ -155,37 +164,25 @@ class LinkedInPublisher(Publisher):
         """
         Parses custom mention syntax @[urn:li:person:XXXX:0] or @[urn:li:organization:XXXX:0]
         and returns the cleaned text plus the attributes array for LinkedIn's API.
-        
-        Syntax: @[URN:INDEX]
-        Example: "Built by @[urn:li:person:123:0]" -> "Built by Mohammad Hussain"
-        Note: We currently don't know the 'name' from just the URN, so the mention
-        will show the URN in the 'text' if not replaced. 
-        Actually, LinkedIn's UGC API expects the URN to be IN THE TEXT where the mention is.
-        Wait, no. The text should have the *display name*, and attributes point to the index.
         """
         import re
         attributes = []
-        
-        # This regex looks for @[urn:li:XXX:YYY:0]
-        # We'll replace it with a placeholder or just use the URN as text for now
-        # Actually, for the best look, we should probably just leave the URN in the text
-        # and LinkedIn will often resolve it, but the PROFESSIONAL way is:
-        # Text: "Built by Mohammad Hussain"
-        # Attribute: { start: 9, length: 16, value: "urn:li:person:XXX" }
-        
-        # For simplicity, let's keep the URN in the text but format it as requested
-        # Actually, the user's screenshot showed @[urn:li:person:pjK3tcVg0K:0]
-        # Let's replace the whole @[...] with just... what? 
-        # If we don't know the name, we'll just use the URN.
-        
         pattern = r"@\[(urn:li:(person|organization):[\w-]+):0\]"
         
-        def replace_mention(match):
-            urn = match.group(1)
-            start_index = match.start()
+        # We need to build the cleaned text and attributes manually to handle index shifts
+        cleaned_text = ""
+        current_pos = 0
+        
+        for match in re.finditer(pattern, text):
+            # Add text before match
+            cleaned_text += text[current_pos:match.start()]
             
+            urn = match.group(1)
             # Determine display text
             display_text = "Mohammad Hussain" if "person:pjK3tcVg0K" in urn else "A Generative Slice" if "organization:107795425" in urn else urn
+            
+            # Record attribute with correct start index in the NEW text
+            attr_start = len(cleaned_text)
             
             # LinkedIn requires specific object types based on URN type
             if "person" in urn:
@@ -194,11 +191,15 @@ class LinkedInPublisher(Publisher):
                 attr_value = {"com.linkedin.common.CompanyUrn": urn}
 
             attributes.append({
-                "start": start_index,
+                "start": attr_start,
                 "length": len(display_text),
                 "value": attr_value
             })
-            return display_text
-
-        cleaned_text = re.sub(pattern, replace_mention, text)
+            
+            cleaned_text += display_text
+            current_pos = match.end()
+            
+        # Add remaining text
+        cleaned_text += text[current_pos:]
+        
         return cleaned_text, attributes
