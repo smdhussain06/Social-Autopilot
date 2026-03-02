@@ -188,11 +188,14 @@ class LinkedInPublisher(Publisher):
             # Record attribute with correct start index in the NEW text
             attr_start = len(cleaned_text)
             
-            # LinkedIn requires specific object types based on URN type
+            # Record attribute with correct start index in the NEW text
+            attr_start = len(cleaned_text)
+            
+            # LinkedIn v2 ugcPosts attributes often expect "Member" or "Organization"
             if "person" in urn:
-                attr_value = {"com.linkedin.common.MemberUrn": urn}
+                attr_value = {"com.linkedin.common.Member": urn}
             else:
-                attr_value = {"com.linkedin.common.OrganizationUrn": urn}
+                attr_value = {"com.linkedin.common.Organization": urn}
 
             attributes.append({
                 "start": attr_start,
