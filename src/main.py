@@ -37,12 +37,13 @@ def build_publishers(cfg: Config) -> list[Any]:
     publishers = []
 
     if cfg.linkedin_enabled:
-        author_urn = cfg.linkedin_organization_urn or cfg.linkedin_person_urn
-        logging.getLogger("orchestrator").info("Initializing LinkedIn with Author URN: %s", author_urn)
+        author_log = cfg.linkedin_organization_urn or cfg.linkedin_person_urn
+        logging.getLogger("orchestrator").info("Initializing LinkedIn with Author Target: %s", author_log)
         publishers.append(
             LinkedInPublisher(
                 access_token=cfg.linkedin_access_token,
-                person_urn=author_urn,
+                person_urn=cfg.linkedin_person_urn,
+                organization_urn=cfg.linkedin_organization_urn,
             )
         )
 
