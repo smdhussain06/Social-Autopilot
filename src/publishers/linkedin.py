@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 LINKEDIN_API_BASE = "https://api.linkedin.com/v2"
 
 class LinkedInPublisher(Publisher):
-    """Publish posts to a LinkedIn personal profile with multi-image support."""
+    """Publish posts to a LinkedIn personal profile or company page with multi-image support."""
 
     def __init__(self, access_token: str, person_urn: str, organization_urn: str = None) -> None:
         self.access_token = access_token
@@ -36,7 +36,7 @@ class LinkedInPublisher(Publisher):
         media_paths = content.get("media_paths", [])
 
         try:
-            # Step 0: Parse mentions from caption
+            # Step 0: Parse mentions from caption (replaced with display names)
             text, attributes = self._parse_mentions(caption)
             
             if media_paths:
@@ -69,8 +69,6 @@ class LinkedInPublisher(Publisher):
                 "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"
             },
         }
-        import json
-        logger.info(f"LinkedIn UGC Post (Text) Payload: {json.dumps(payload, indent=2)}")
         resp = requests.post(f"{LINKEDIN_API_BASE}/ugcPosts", headers=self._headers, json=payload, timeout=30)
         if resp.status_code != 201:
             logger.error(f"LinkedIn UGC Post (Text) Error Body: {resp.text}")
@@ -147,8 +145,6 @@ class LinkedInPublisher(Publisher):
             }
         }
 
-        import json
-        logger.info(f"LinkedIn UGC Post (Images) Payload: {json.dumps(payload, indent=2)}")
         resp = requests.post(f"{LINKEDIN_API_BASE}/ugcPosts", headers=self._headers, json=payload, timeout=30)
         if resp.status_code != 201:
             logger.error(f"LinkedIn UGC Post (Images) Error Body: {resp.text}")
@@ -167,44 +163,16 @@ class LinkedInPublisher(Publisher):
 
     def _parse_mentions(self, text: str) -> tuple[str, List[dict]]:
         """
-        Parses custom mention syntax @[urn:li:person:XXXX:0] or @[urn:li:organization:XXXX:0]
-        and returns the cleaned text plus the attributes array for LinkedIn's API.
+        Replaces custom mention syntax @[urn:li:person:XXXX:0] or @[urn:li:organization:XXXX:0]
+        with clean display names. (Clickable links disabled for v2 stability).
         """
         import re
-        attributes = []
         pattern = r"@\[(urn:li:(person|organization):[\w-]+):0\]"
         
-        # We need to build the cleaned text and attributes manually to handle index shifts
-        cleaned_text = ""
-        current_pos = 0
-        
-        for match in re.finditer(pattern, text):
-            # Add text before match
-            cleaned_text += text[current_pos:match.start()]
-            
+        def replace_mention(match):
             urn = match.group(1)
-            # Determine display text
             display_text = "Mohammad Hussain" if "person:pjK3tcVg0K" in urn else "A Generative Slice" if "organization:107795425" in urn else urn
-            
-            # Record attribute with correct start index in the NEW text
-            attr_start = len(cleaned_text)
-            
-            # LinkedIn v2 ugcPosts attributes often expect "Member" or "Organization"
-            if "person" in urn:
-                attr_value = {"com.linkedin.common.Member": urn}
-            else:
-                attr_value = {"com.linkedin.common.Organization": urn}
+            return display_text
 
-            attributes.append({
-                "start": attr_start,
-                "length": len(display_text),
-                "value": attr_value
-            })
-            
-            cleaned_text += display_text
-            current_pos = match.end()
-            
-        # Add remaining text
-        cleaned_text += text[current_pos:]
-        
-        return cleaned_text, attributes
+        cleaned_text = re.sub(pattern, replace_mention, text)
+        return cleaned_text, []
