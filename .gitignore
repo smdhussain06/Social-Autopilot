@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+*.log
+.DS_Store
+get_linkedin_token.py
+find_linkedin_urn.py
+node_modules/
+dist/
+build/

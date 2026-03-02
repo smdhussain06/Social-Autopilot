@@ -1,0 +1,84 @@
+name: "🚀 Social Media Autopilot"
+
+on:
+  schedule:
+    # Fire daily at 13:30 UTC (7:00 PM IST)
+    - cron: "30 13 * * *"
+
+  # Manual trigger for testing & ad-hoc runs
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run in dry-run mode (no actual publishing)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: "📡 Publish Daily Content"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      # ── Google Sheets ──
+      GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
+      GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+
+      # ── Gemini AI ──
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+      # ── LinkedIn ──
+      LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
+      LINKEDIN_PERSON_URN: ${{ secrets.LINKEDIN_PERSON_URN }}
+
+      # ── YouTube ──
+      YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+      YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+
+      # ── Instagram ──
+      INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+      INSTAGRAM_ACCOUNT_ID: ${{ secrets.INSTAGRAM_ACCOUNT_ID }}
+      INSTAGRAM_MODE: ${{ secrets.INSTAGRAM_MODE }}
+      BUFFER_PROFILE_ID: ${{ secrets.BUFFER_PROFILE_ID }}
+
+      # ── Notifications ──
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      # ── Runtime ──
+      DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+      LOG_LEVEL: "INFO"
+
+    steps:
+      - name: "📦 Checkout repository"
+        uses: actions/checkout@v4
+
+      - name: "🐍 Set up Python 3.11"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: "📥 Install dependencies"
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: "🚀 Run Social Media Engine"
+        run: python -m src.main
+
+      - name: "📋 Upload logs as artifact"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-logs-${{ github.run_id }}
+          path: "*.log"
+          retention-days: 7
+          if-no-files-found: ignore
